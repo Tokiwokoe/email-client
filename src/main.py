@@ -1,9 +1,15 @@
+from config import PASSWORD
 from fastapi import FastAPI, Depends
 from fastapi_users import FastAPIUsers
 from auth.auth import auth_backend
 from auth.manager import get_user_manager
 from auth.schemas import UserRead, UserCreate
 from database import User
+from mail.services import imap_read_email, smtp_send_email
+
+
+imap_password = PASSWORD
+smtp_password = PASSWORD
 
 
 app = FastAPI()
@@ -37,3 +43,13 @@ def protected_route(user: User = Depends(current_user)):
 @app.get('/unprotected-route')
 def protected_route():
     return f'Hello!'
+
+
+@app.get('/read-email/{imap_login}')
+def read_email(imap_login):
+    return imap_read_email(imap_login, imap_password)
+
+
+@app.post('/send-email/{smtp_login}%{sender}%{receiver}%{mail_subject}%{mail_text}')
+def send_email(smtp_login, sender, receiver, mail_subject, mail_text):
+    return smtp_send_email(smtp_login, smtp_password, sender, receiver, mail_subject, mail_text)
