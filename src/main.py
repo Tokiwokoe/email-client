@@ -6,6 +6,7 @@ from auth.manager import get_user_manager
 from auth.schemas import UserRead, UserCreate
 from database import User
 from mail.services import imap_read_email, smtp_send_email
+from pages.router import router as router_pages
 
 
 imap_password = PASSWORD
@@ -31,18 +32,9 @@ app.include_router(
     tags=["auth"],
 )
 
+app.include_router(router_pages)
 
 current_user = fastapi_users.current_user()
-
-
-@app.get('/protected-route')
-def protected_route(user: User = Depends(current_user)):
-    return f'Hello, {user.username}'
-
-
-@app.get('/unprotected-route')
-def protected_route():
-    return f'Hello!'
 
 
 @app.get('/read-email/{imap_login}')

@@ -18,6 +18,7 @@ def imap_read_email(imap_login, imap_password):
         server.login(imap_login, imap_password)
 
         response, folders = server.list()
+
         print(folders)
 
         server.select('INBOX')
