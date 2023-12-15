@@ -9,6 +9,7 @@ from database import User
 from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database
 from pages.router import router as router_pages
 from cryptography.services import create_keys, encrypt_message, decrypt_message
+import ast
 
 
 imap_password = PASSWORD
@@ -49,12 +50,12 @@ def send_email(smtp_login, receiver, mail_subject, mail_text, cipher: bool):
     try:
         if cipher is True:
             rsa, public_key, private_key, encrypted_des_key, encrypted_des_iv = create_keys()
-            enc = encrypt_message(input_message=mail_text,
+            enc = str(encrypt_message(input_message=mail_text,
                                   key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
-                                  iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv))
-            mail_text = str(decrypt_message(input_message=enc,
+                                  iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv)))
+            mail_text = decrypt_message(input_message=ast.literal_eval(enc),
                                             key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
-                                            iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv)))
+                                            iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv))
         #await add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text, cipher)
         return smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text)
     except Exception as err:
