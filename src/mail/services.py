@@ -5,6 +5,8 @@ import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from database import async_session_maker
+from models.models import email_letter
 
 
 SMTP_SERVER = 'smtp.rambler.ru'
@@ -75,9 +77,9 @@ def print_email(message, server):
     return mail
 
 
-def smtp_send_email(smtp_login, smtp_password, sender, receiver, mail_subject, mail_text):
+def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text):
     msg = MIMEMultipart()
-    msg['From'] = sender
+    msg['From'] = smtp_login
     msg['To'] = receiver
     msg['Subject'] = mail_subject
     text = mail_text
@@ -90,3 +92,20 @@ def smtp_send_email(smtp_login, smtp_password, sender, receiver, mail_subject, m
             return 'Успешно отправлено'
         except Exception:
             return 'При отправке произошла ошибка'
+
+
+async def add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text, cipher):
+    db = async_session_maker()
+    if not mail_subject:
+        mail_subject = 'Без_темы'
+    await db.execute(
+        email_letter.insert().values(
+            forward_from=smtp_login,
+            sender_folder_id=1,  # Отправленное
+            forward_to=receiver,
+            receiver_folder_id=1,  # Входящие
+            mail_subject=mail_subject,
+            text=mail_text,
+        )
+    )
+    await db.commit()

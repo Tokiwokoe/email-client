@@ -1,5 +1,4 @@
 from typing import AsyncGenerator
-
 from fastapi import Depends
 from fastapi_users.db import SQLAlchemyBaseUserTable, SQLAlchemyUserDatabase
 from sqlalchemy import String, Boolean, Column, Integer

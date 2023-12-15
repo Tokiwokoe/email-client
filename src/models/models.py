@@ -11,13 +11,21 @@ folder = Table(
 )
 
 
+post_server = Table(
+    'post_server',
+    metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String, unique=True),
+)
+
+
 post_account = Table(
     'post_account',
     metadata,
     Column('id', Integer, primary_key=True),
-    Column('login', String, nullable=False),
+    Column('post_server', ForeignKey('post_server.id'), nullable=False),
+    Column('login', String, nullable=False, unique=True),
     Column('password', String, nullable=False),
-    Column('user_id', Integer, ForeignKey('user.id'), nullable=False),
 )
 
 
@@ -33,13 +41,36 @@ user = Table(
     Column('is_verified', Boolean, default=False, nullable=False),
 )
 
+
+users_account = Table(
+    'users_account',
+    metadata,
+    Column('id', Integer, primary_key=True),
+    Column('user', ForeignKey('user.id'), nullable=False),
+    Column('post_account', ForeignKey('post_account.id'), nullable=False),
+)
+
+
 email_letter = Table(
     'email_letter',
     metadata,
     Column('id', Integer, primary_key=True),
-    Column('forward_from', ForeignKey('user.id'), nullable=False),
+    Column('forward_from', String, nullable=False),
     Column('sender_folder_id', ForeignKey('folder.id'), nullable=False),
-    Column('forward_to', ForeignKey('user.id'), nullable=False),
+    Column('forward_to', String, nullable=False),
     Column('receiver_folder_id', ForeignKey('folder.id'), nullable=False),
+    Column('mail_subject', String),
     Column('text', Text, nullable=False),
+    Column('cipher', Boolean),
+)
+
+
+connection = Table(
+    'connection',
+    metadata,
+    Column('id', Integer, primary_key=True),
+    Column('connection_sender', ForeignKey('post_account.id'), nullable=False),
+    Column('sender_key', String, nullable=False),
+    Column('connection_receiver', ForeignKey('post_account.id'), nullable=False),
+    Column('connected', Boolean),
 )
