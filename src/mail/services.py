@@ -1,10 +1,13 @@
+import ast
 import imaplib
 import email
+from Crypto.Cipher import PKCS1_OAEP
 from PIL import Image
 import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from cryptography.services import decrypt_message, rsa
 from database import async_session_maker
 from models.models import email_letter
 
@@ -38,6 +41,14 @@ def print_email(message, server):
     mail = {}
     response, msg = server.fetch(message, '(RFC822)')
     email_message = email.message_from_bytes(msg[0][1])
+
+    cipher_header = email_message.get('X-Cipher-Header', 'Cipher: False')
+    rsa_header = email_message.get('X-RSA-Header', 'RSA: False')
+    des_key_header = email_message.get('X-DES-key-Header', 'DES_key: False')
+    des_iv_header = email_message.get('X-DES-IV-Header', 'DES_IV: False')
+
+    is_encrypted = 'Cipher: True' in cipher_header
+
     frm = email.header.decode_header(email_message['From'])[0][0]
     mail['From'] = frm if type(frm) is str else frm.decode("utf-8")
     sbj = email.header.decode_header(email_message['To'])[0][0]
@@ -73,17 +84,30 @@ def print_email(message, server):
                 if ".txt" in decoded_filename:
                     file_content = part.get_payload(decode=True).decode('utf-8')
                     mail['Attachment'] = file_content
-
+    if is_encrypted:
+        des_key = ast.literal_eval(des_key_header.replace('DES_key: ', ''))
+        des_iv = ast.literal_eval(des_iv_header.replace('DES_IV: ', ''))
+        mail['Text'] = decrypt_message(
+            input_message=ast.literal_eval(mail['Text']),
+            key=PKCS1_OAEP.new(rsa).decrypt(des_key),
+            iv=PKCS1_OAEP.new(rsa).decrypt(des_iv)
+        )
     return mail
 
 
-def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text):
+def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header, rsa_header, des_key_header, des_iv_header):
     msg = MIMEMultipart()
     msg['From'] = smtp_login
     msg['To'] = receiver
+    if not mail_subject:
+        mail_subject = 'Без_темы'
     msg['Subject'] = mail_subject
     text = mail_text
     msg.attach(MIMEText(text))
+    msg.add_header('X-Cipher-Header', cipher_header)
+    msg.add_header('X-RSA-Header', rsa_header)
+    msg.add_header('X-DES-key-Header', des_key_header)
+    msg.add_header('X-DES-IV-Header', des_iv_header)
 
     with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
         try:
@@ -91,7 +115,7 @@ def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text
             server.sendmail(smtp_login, [receiver], msg.as_string())
             return 'Успешно отправлено'
         except Exception:
-            return 'При отправке произошла ошибка'
+            return 'При отправке произошла ошибка!'
 
 
 async def add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text, cipher):

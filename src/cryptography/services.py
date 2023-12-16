@@ -34,9 +34,9 @@ def decrypt_message(input_message: bytes, key: bytes, iv: bytes) -> str:
             decrypted_message += decrypted_block
     return decrypted_message.decode('utf-8')
 
+rsa = RSA.generate(2048)
 
 def create_keys():
-    rsa = RSA.generate(2048)
     public_key = rsa.publickey().export_key()
     private_key = rsa.export_key()
 
