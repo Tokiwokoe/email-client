@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <div class="menu">
+        <a class="button" href=/pages/base?folder=INBOX>Входящие</a>
+        <a class="button" href=/pages/base?folder=SentBox>Отправленные</a>
+        <a class="button" href=/pages/base?folder=Spam>Спам</a>
+        <a class="button" href=/pages/base?folder=DraftBox>Черновики</a>
+        <a class="button" href=/pages/base?folder=Trash>Корзина</a>
+    </div>
+    <div class="content">
+        <ul>
+            {% for mail in emails %}
+            <li>
+                <strong>От:</strong> {{ mail['From'] }}<br>
+                <strong>Тема:</strong> {{ mail['Subject'] }}<br>
+                <p>{{ mail['Text'] }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock content %}

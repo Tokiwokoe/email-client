@@ -18,7 +18,7 @@ IMAP_SERVER = 'imap.rambler.ru'
 IMAP_PORT = 993
 
 
-def imap_read_email(imap_login, imap_password):
+def imap_read_email(imap_login, imap_password, folder):
     with imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT) as server:
         server.login(imap_login, imap_password)
 
@@ -26,7 +26,7 @@ def imap_read_email(imap_login, imap_password):
 
         print(folders)
 
-        server.select('INBOX')
+        server.select(folder)
         """server.select('Trash')
         server.select('DraftBox')
         server.select('Spam')

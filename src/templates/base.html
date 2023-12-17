@@ -8,6 +8,36 @@
     <title>Почтовый клиент</title>
 </head>
 <body>
+<style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+        }
+        .menu {
+            width: 20%;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+        .content {
+            flex-grow: 1;
+            padding: 20px;
+        }
+        .button {
+            display: block;
+            margin-bottom: 10px;
+            text-decoration: none;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border: none;
+            text-align: center;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+    </style>
 {% include 'navigation.html' %}
 {% block content %}
 {% endblock content %}

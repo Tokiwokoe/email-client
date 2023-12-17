@@ -9,6 +9,7 @@ from database import User
 from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database
 from pages.router import router as router_pages
 from cryptography.services import encrypt_message, create_keys, rsa
+from models.models import folder as folder_model
 
 
 imap_password = PASSWORD
@@ -39,9 +40,9 @@ app.include_router(router_pages)
 current_user = fastapi_users.current_user()
 
 
-@app.get('/read-email/{imap_login}')
-def read_email(imap_login):
-    return imap_read_email(imap_login, imap_password)
+@app.get('/read-email/{imap_login}%{{folder}}')
+def read_email(imap_login, folder):
+    return imap_read_email(imap_login, imap_password, folder)
 
 
 @app.post('/send-email/{smtp_login}%{receiver}%{mail_text}')
