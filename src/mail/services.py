@@ -27,6 +27,11 @@ def imap_read_email(imap_login, imap_password):
         print(folders)
 
         server.select('INBOX')
+        """server.select('Trash')
+        server.select('DraftBox')
+        server.select('Spam')
+        server.select('SentBox')"""
+
         mails = []
         response, messages = server.search(None, 'ALL')
         messages = messages[0].split(b' ')
@@ -85,13 +90,22 @@ def print_email(message, server):
                     file_content = part.get_payload(decode=True).decode('utf-8')
                     mail['Attachment'] = file_content
     if is_encrypted:
-        des_key = ast.literal_eval(des_key_header.replace('DES_key: ', ''))
-        des_iv = ast.literal_eval(des_iv_header.replace('DES_IV: ', ''))
-        mail['Text'] = decrypt_message(
-            input_message=ast.literal_eval(mail['Text']),
-            key=PKCS1_OAEP.new(rsa).decrypt(des_key),
-            iv=PKCS1_OAEP.new(rsa).decrypt(des_iv)
-        )
+        try:
+            des_key = ast.literal_eval(des_key_header.replace('DES_key: ', ''))
+            des_iv = ast.literal_eval(des_iv_header.replace('DES_IV: ', ''))
+            mail['Text'] = decrypt_message(
+                input_message=ast.literal_eval(mail['Text']),
+                key=PKCS1_OAEP.new(rsa).decrypt(des_key),
+                iv=PKCS1_OAEP.new(rsa).decrypt(des_iv)
+            )
+            mail['Subject'] = decrypt_message(
+                input_message=ast.literal_eval(mail['Subject']),
+                key=PKCS1_OAEP.new(rsa).decrypt(des_key),
+                iv=PKCS1_OAEP.new(rsa).decrypt(des_iv)
+            )
+        except ValueError:
+            mail['Text'] = 'Ключи для дешифрования утеряны'
+            mail['Subject'] = 'Ключи для дешифрования утеряны'
     return mail
 
 
@@ -101,7 +115,7 @@ def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text
     msg['To'] = receiver
     if not mail_subject:
         mail_subject = 'Без_темы'
-    msg['Subject'] = mail_subject
+    msg['Subject'] = str(mail_subject)
     text = mail_text
     msg.attach(MIMEText(text))
     msg.add_header('X-Cipher-Header', cipher_header)
@@ -118,7 +132,7 @@ def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text
             return 'При отправке произошла ошибка!'
 
 
-async def add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text, cipher):
+async def add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text):
     db = async_session_maker()
     if not mail_subject:
         mail_subject = 'Без_темы'

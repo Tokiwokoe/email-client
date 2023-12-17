@@ -44,15 +44,22 @@ def read_email(imap_login):
     return imap_read_email(imap_login, imap_password)
 
 
-@app.post('/send-email/{smtp_login}%{sender}%{receiver}%{mail_text}')
+@app.post('/send-email/{smtp_login}%{receiver}%{mail_text}')
 def send_email(smtp_login: str, receiver: str, mail_text: str, cipher: bool = False, mail_subject: str = ''):
     try:
         if cipher:
             fake_rsa, public_key, private_key, encrypted_des_key, encrypted_des_iv = create_keys()
-
-            mail_text = encrypt_message(input_message=mail_text,
-                                        key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
-                                        iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv))
+            if mail_subject:
+                mail_subject = encrypt_message(
+                    input_message=mail_subject,
+                    key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
+                    iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv)
+                )
+            mail_text = encrypt_message(
+                input_message=mail_text,
+                key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
+                iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv)
+            )
             '''mail_text = decrypt_message(input_message=ast.literal_eval(enc),
                                         key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
                                         iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv))'''
@@ -66,10 +73,8 @@ def send_email(smtp_login: str, receiver: str, mail_text: str, cipher: bool = Fa
             des_key_header = 'DES_key: False'
             des_iv_header = 'DES_IV: False'
 
-        #await add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text, cipher)
+        #await add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text)
         return smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, str(mail_text), cipher_header,
                                rsa_header, des_key_header, des_iv_header)
     except Exception as err:
         print(err)
-
-#a = send_email('nastya.mam4ur@rambler.ru', 'nastya.mam4ur@rambler.ru', 'nastya.mam4ur@rambler.ru', 'nastya.mam4ur@rambler.ru', True)
