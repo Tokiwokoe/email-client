@@ -2,19 +2,24 @@
 {% block content %}
 <div class="container">
     <div class="menu">
-        <a class="button" href=/pages/base?folder=INBOX>Входящие</a>
-        <a class="button" href=/pages/base?folder=SentBox>Отправленные</a>
-        <a class="button" href=/pages/base?folder=Spam>Спам</a>
-        <a class="button" href=/pages/base?folder=DraftBox>Черновики</a>
-        <a class="button" href=/pages/base?folder=Trash>Корзина</a>
+        <a class="button" href="/pages/base?folder=INBOX">Входящие</a>
+        <a class="button" href="/pages/base?folder=SentBox">Отправленные</a>
+        <a class="button" href="/pages/base?folder=Spam">Спам</a>
+        <a class="button" href="/pages/base?folder=DraftBox">Черновики</a>
+        <a class="button" href="/pages/base?folder=Trash">Корзина</a>
     </div>
     <div class="content">
         <ul>
             {% for mail in emails %}
-            <li>
+            <li style="margin-bottom: 35px">
                 <strong>От:</strong> {{ mail['From'] }}<br>
-                <strong>Тема:</strong> {{ mail['Subject'] }}<br>
-                <p>{{ mail['Text'] }}</p>
+                <p><strong>Тема:</strong> {{ mail['Subject'] }}<br></p>
+                <form method="post" action="" style="display: inline-block; margin-right: 10px;">
+                    <button type="submit">Прочитать</button>
+                </form>
+                <form method="post" action="/delete-email/{{ mail['Message-ID'] }}" style="display: inline-block;">
+                    <button type="submit" class="delete-button">Удалить</button>
+                </form>
             </li>
             {% endfor %}
         </ul>

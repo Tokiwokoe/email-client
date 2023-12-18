@@ -1,15 +1,15 @@
 from Crypto.Cipher import PKCS1_OAEP
+from starlette.responses import RedirectResponse
 from config import PASSWORD
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi_users import FastAPIUsers
 from auth.auth import auth_backend
 from auth.manager import get_user_manager
 from auth.schemas import UserRead, UserCreate
 from database import User
-from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database
-from pages.router import router as router_pages
+from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database, delete_email_by_number
+from pages.router import router as router_pages, get_base_template
 from cryptography.services import encrypt_message, create_keys, rsa
-from models.models import folder as folder_model
 
 
 imap_password = PASSWORD
@@ -61,9 +61,6 @@ def send_email(smtp_login: str, receiver: str, mail_text: str, cipher: bool = Fa
                 key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
                 iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv)
             )
-            '''mail_text = decrypt_message(input_message=ast.literal_eval(enc),
-                                        key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
-                                        iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv))'''
             cipher_header = 'Cipher: True'
             rsa_header = f'RSA: {rsa}'
             des_key_header = f'DES_key: {encrypted_des_key}'
@@ -79,3 +76,14 @@ def send_email(smtp_login: str, receiver: str, mail_text: str, cipher: bool = Fa
                                rsa_header, des_key_header, des_iv_header)
     except Exception as err:
         print(err)
+
+
+@app.post('/delete-email/{message_id}', response_class=RedirectResponse)
+def delete_email(message_id, folder='Trash'):
+    smtp_login = 'nastya.mam4ur@rambler.ru'
+    smtp_password = PASSWORD
+    try:
+        deleted_message = delete_email_by_number(smtp_login, smtp_password, message_id, folder)
+    except Exception as err:
+        print(err)
+    return RedirectResponse(f'/pages/base?folder={folder}', status_code=status.HTTP_303_SEE_OTHER)

@@ -7,6 +7,8 @@ import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
+from config import PASSWORD
 from cryptography.services import decrypt_message, rsa
 from database import async_session_maker
 from models.models import email_letter
@@ -24,25 +26,21 @@ def imap_read_email(imap_login, imap_password, folder):
 
         response, folders = server.list()
 
-        print(folders)
-
         server.select(folder)
-        """server.select('Trash')
-        server.select('DraftBox')
-        server.select('Spam')
-        server.select('SentBox')"""
 
         mails = []
         response, messages = server.search(None, 'ALL')
         messages = messages[0].split(b' ')
+        message_id = 1
         for message in messages:
-            mails.append(print_email(message, server))
+            mails.append(print_email(message, server, message_id))
+            message_id += 1
 
         server.close()
         return mails
 
 
-def print_email(message, server):
+def print_email(message, server, message_id):
     mail = {}
     response, msg = server.fetch(message, '(RFC822)')
     email_message = email.message_from_bytes(msg[0][1])
@@ -60,6 +58,7 @@ def print_email(message, server):
     mail['To'] = sbj
     subject = email.header.decode_header(email_message['Subject'])[0][0]
     mail['Subject'] = subject if type(subject) is str else subject.decode("utf-8")
+    mail['Message-ID'] = message_id
     if email_message.is_multipart():
         for part in email_message.walk():
             content_type = part.get_content_type()
@@ -130,6 +129,20 @@ def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text
             return 'Успешно отправлено'
         except Exception:
             return 'При отправке произошла ошибка!'
+
+
+def delete_email_by_number(imap_login, imap_password, email_number, folder):
+    try:
+        with imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT) as server:
+            server.login(imap_login, imap_password)
+            server.select(folder)
+            if folder != 'Trash':
+                server.copy(email_number, 'Trash')
+            server.store(email_number, '+FLAGS', '(\Deleted)')
+            server.expunge()
+            return f'Письмо с номером {email_number} успешно удалено.'
+    except Exception as err:
+        return f'Произошла ошибка при удалении письма: {str(err)}'
 
 
 async def add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text):
