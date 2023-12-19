@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 from config import PASSWORD
-from mail.services import imap_read_email, delete_email_by_number
+from mail.services import imap_read_email
 import imaplib
 
 router = APIRouter(
@@ -24,3 +24,7 @@ def get_base_template(request: Request):
         emails = []
     return templates.TemplateResponse('main_page.html', {'request': request, 'emails': emails})
 
+
+@router.get('/write-email')
+def get_base_template(request: Request):
+    return templates.TemplateResponse('write_letter.html', {'request': request})

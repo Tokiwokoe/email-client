@@ -7,8 +7,6 @@ import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
-from config import PASSWORD
 from cryptography.services import decrypt_message, rsa
 from database import async_session_maker
 from models.models import email_letter

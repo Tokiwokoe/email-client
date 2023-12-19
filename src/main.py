@@ -1,14 +1,14 @@
 from Crypto.Cipher import PKCS1_OAEP
 from starlette.responses import RedirectResponse
 from config import PASSWORD
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, Request, Form
 from fastapi_users import FastAPIUsers
 from auth.auth import auth_backend
 from auth.manager import get_user_manager
 from auth.schemas import UserRead, UserCreate
 from database import User
 from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database, delete_email_by_number
-from pages.router import router as router_pages, get_base_template
+from pages.router import router as router_pages
 from cryptography.services import encrypt_message, create_keys, rsa
 
 
@@ -45,8 +45,8 @@ def read_email(imap_login, folder):
     return imap_read_email(imap_login, imap_password, folder)
 
 
-@app.post('/send-email/{smtp_login}%{receiver}%{mail_text}')
-def send_email(smtp_login: str, receiver: str, mail_text: str, cipher: bool = False, mail_subject: str = ''):
+@app.post('/send-email')
+async def send_email(smtp_login: str = Form(...), receiver: str = Form(...), mail_subject: str = Form(''), mail_text: str = Form(''), cipher: bool = Form(False)):
     try:
         if cipher:
             fake_rsa, public_key, private_key, encrypted_des_key, encrypted_des_iv = create_keys()
@@ -72,10 +72,11 @@ def send_email(smtp_login: str, receiver: str, mail_text: str, cipher: bool = Fa
             des_iv_header = 'DES_IV: False'
 
         #await add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text)
-        return smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, str(mail_text), cipher_header,
-                               rsa_header, des_key_header, des_iv_header)
+        await smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, str(mail_text), cipher_header,
+                              rsa_header, des_key_header, des_iv_header)
     except Exception as err:
         print(err)
+    return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.post('/delete-email/{message_id}', response_class=RedirectResponse)

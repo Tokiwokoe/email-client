@@ -56,11 +56,11 @@ email_letter = Table(
     metadata,
     Column('id', Integer, primary_key=True),
     Column('forward_from', String, nullable=False),
-    Column('sender_folder_id', ForeignKey('folder.id'), nullable=False),
+    Column('sender_folder', ForeignKey('folder.id'), nullable=False),
     Column('forward_to', String, nullable=False),
     Column('receiver_folder_id', ForeignKey('folder.id'), nullable=False),
     Column('mail_subject', String),
-    Column('text', Text, nullable=False),
+    Column('text', Text),
     Column('cipher', Boolean),
 )
 
@@ -69,8 +69,6 @@ connection = Table(
     'connection',
     metadata,
     Column('id', Integer, primary_key=True),
-    Column('connection_sender', ForeignKey('post_account.id'), nullable=False),
-    Column('sender_key', String, nullable=False),
-    Column('connection_receiver', ForeignKey('post_account.id'), nullable=False),
-    Column('connected', Boolean),
+    Column('connection_sender', ForeignKey('post_account.login'), nullable=False),
+    Column('connection_receiver', ForeignKey('post_account.login'), nullable=False),
 )
