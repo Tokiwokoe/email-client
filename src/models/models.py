@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, Table, Column, Integer, String, ForeignKey, Text, Boolean
+from sqlalchemy import MetaData, Table, Column, Integer, String, ForeignKey, Text, Boolean, LargeBinary
 
 metadata = MetaData()
 
@@ -26,6 +26,10 @@ post_account = Table(
     Column('post_server', ForeignKey('post_server.id'), nullable=False),
     Column('login', String, nullable=False, unique=True),
     Column('password', String, nullable=False),
+    Column('private_key', LargeBinary, nullable=False),
+    Column('public_key', LargeBinary, nullable=False),
+    Column('encrypted_des_key', LargeBinary, nullable=False),
+    Column('encrypted_des_iv', LargeBinary, nullable=False),
 )
 
 

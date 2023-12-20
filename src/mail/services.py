@@ -1,16 +1,22 @@
 import ast
+import asyncio
 import imaplib
 import email
 from Crypto.Cipher import PKCS1_OAEP
+from Crypto.PublicKey import RSA
+from Crypto.PublicKey.RSA import RsaKey
 from PIL import Image
 import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from cryptography.services import decrypt_message, rsa
-from database import async_session_maker
-from models.models import email_letter
 
+from sqlalchemy import select
+
+from config import PASSWORD
+from cryptography.services import decrypt_message
+from database import async_session_maker
+from models.models import email_letter, post_account
 
 SMTP_SERVER = 'smtp.rambler.ru'
 SMTP_PORT = 465
@@ -18,7 +24,7 @@ IMAP_SERVER = 'imap.rambler.ru'
 IMAP_PORT = 993
 
 
-def imap_read_email(imap_login, imap_password, folder):
+async def imap_read_email(imap_login, imap_password, folder):
     with imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT) as server:
         server.login(imap_login, imap_password)
 
@@ -31,22 +37,18 @@ def imap_read_email(imap_login, imap_password, folder):
         messages = messages[0].split(b' ')
         message_id = 1
         for message in messages:
-            mails.append(print_email(message, server, message_id))
+            mails.append(await print_email(message, server, message_id))
             message_id += 1
 
         server.close()
         return mails
 
 
-def print_email(message, server, message_id):
+async def print_email(message, server, message_id):
     mail = {}
     response, msg = server.fetch(message, '(RFC822)')
     email_message = email.message_from_bytes(msg[0][1])
-
     cipher_header = email_message.get('X-Cipher-Header', 'Cipher: False')
-    rsa_header = email_message.get('X-RSA-Header', 'RSA: False')
-    des_key_header = email_message.get('X-DES-key-Header', 'DES_key: False')
-    des_iv_header = email_message.get('X-DES-IV-Header', 'DES_IV: False')
 
     is_encrypted = 'Cipher: True' in cipher_header
 
@@ -88,25 +90,34 @@ def print_email(message, server, message_id):
                     mail['Attachment'] = file_content
     if is_encrypted:
         try:
-            des_key = ast.literal_eval(des_key_header.replace('DES_key: ', ''))
-            des_iv = ast.literal_eval(des_iv_header.replace('DES_IV: ', ''))
-            mail['Text'] = decrypt_message(
-                input_message=ast.literal_eval(mail['Text']),
-                key=PKCS1_OAEP.new(rsa).decrypt(des_key),
-                iv=PKCS1_OAEP.new(rsa).decrypt(des_iv)
-            )
-            mail['Subject'] = decrypt_message(
-                input_message=ast.literal_eval(mail['Subject']),
-                key=PKCS1_OAEP.new(rsa).decrypt(des_key),
-                iv=PKCS1_OAEP.new(rsa).decrypt(des_iv)
-            )
+            async_session = async_session_maker()
+            async with async_session.begin():
+                result = await async_session.execute(
+                    select(post_account).where(post_account.c.login == 'nastya.mam4ur@rambler.ru'))
+                post_account_data = result.fetchone()
+
+            if post_account_data:
+                private_key = RSA.import_key(post_account_data.private_key)
+                public_key = RSA.import_key(post_account_data.public_key)
+                encrypted_des_key = post_account_data.encrypted_des_key
+                encrypted_des_iv = post_account_data.encrypted_des_iv
+                mail['Text'] = decrypt_message(
+                    input_message=ast.literal_eval(mail['Text']),
+                    key=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_key),
+                    iv=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_iv)
+                )
+                mail['Subject'] = decrypt_message(
+                    input_message=ast.literal_eval(mail['Subject']),
+                    key=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_key),
+                    iv=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_iv)
+                )
         except ValueError:
             mail['Text'] = 'Ключи для дешифрования утеряны'
             mail['Subject'] = 'Ключи для дешифрования утеряны'
     return mail
 
 
-def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header, rsa_header, des_key_header, des_iv_header):
+def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header):
     msg = MIMEMultipart()
     msg['From'] = smtp_login
     msg['To'] = receiver
@@ -116,9 +127,6 @@ def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text
     text = mail_text
     msg.attach(MIMEText(text))
     msg.add_header('X-Cipher-Header', cipher_header)
-    msg.add_header('X-RSA-Header', rsa_header)
-    msg.add_header('X-DES-key-Header', des_key_header)
-    msg.add_header('X-DES-IV-Header', des_iv_header)
 
     with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
         try:

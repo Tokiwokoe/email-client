@@ -34,16 +34,14 @@ def decrypt_message(input_message: bytes, key: bytes, iv: bytes) -> str:
             decrypted_message += decrypted_block
     return decrypted_message.decode('utf-8')
 
-rsa = RSA.generate(2048)
 
 def create_keys():
+    rsa = RSA.generate(2048)
     public_key = rsa.publickey().export_key()
     private_key = rsa.export_key()
 
-    #save_keys_to_file(private_key_path, public_key_path, private_key, public_key)
-
     des = get_random_bytes(8)
     iv = get_random_bytes(8)
-    encrypted_des_key = PKCS1_OAEP.new(rsa).encrypt(des)
-    encrypted_des_iv = PKCS1_OAEP.new(rsa).encrypt(iv)
-    return rsa, public_key, private_key, encrypted_des_key, encrypted_des_iv
+    encrypted_des_key = PKCS1_OAEP.new(RSA.import_key(public_key)).encrypt(des)
+    encrypted_des_iv = PKCS1_OAEP.new(RSA.import_key(public_key)).encrypt(iv)
+    return public_key, private_key, encrypted_des_key, encrypted_des_iv

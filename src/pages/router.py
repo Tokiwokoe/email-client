@@ -13,11 +13,11 @@ templates = Jinja2Templates(directory='templates')
 
 
 @router.get('/base')
-def get_base_template(request: Request):
+async def get_base_template(request: Request):
     folder = request.query_params.get('folder')
     if folder:
         try:
-            emails = imap_read_email('nastya.mam4ur@rambler.ru', PASSWORD, folder)
+            emails = await imap_read_email('nastya.mam4ur@rambler.ru', PASSWORD, folder)
         except imaplib.IMAP4.error:
             emails = []
     else:
@@ -28,3 +28,8 @@ def get_base_template(request: Request):
 @router.get('/write-email')
 def get_base_template(request: Request):
     return templates.TemplateResponse('write_letter.html', {'request': request})
+
+
+@router.get('/add-mail-account/')
+async def add_mail_account_form(request: Request):
+    return templates.TemplateResponse("add_mail_account.html", {"request": request})

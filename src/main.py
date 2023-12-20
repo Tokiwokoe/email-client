@@ -1,4 +1,6 @@
 from Crypto.Cipher import PKCS1_OAEP
+from Crypto.PublicKey import RSA
+from sqlalchemy import select
 from starlette.responses import RedirectResponse
 from config import PASSWORD
 from fastapi import FastAPI, status, Request, Form
@@ -6,10 +8,11 @@ from fastapi_users import FastAPIUsers
 from auth.auth import auth_backend
 from auth.manager import get_user_manager
 from auth.schemas import UserRead, UserCreate
-from database import User
+from database import User, async_session_maker
 from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database, delete_email_by_number
+from models.models import post_account, post_server as post_server_model
 from pages.router import router as router_pages
-from cryptography.services import encrypt_message, create_keys, rsa
+from cryptography.services import encrypt_message, create_keys
 
 
 imap_password = PASSWORD
@@ -41,39 +44,47 @@ current_user = fastapi_users.current_user()
 
 
 @app.get('/read-email/{imap_login}%{{folder}}')
-def read_email(imap_login, folder):
-    return imap_read_email(imap_login, imap_password, folder)
+async def read_email(imap_login, folder):
+    return await imap_read_email(imap_login, imap_password, folder)
 
 
 @app.post('/send-email')
 async def send_email(smtp_login: str = Form(...), receiver: str = Form(...), mail_subject: str = Form(''), mail_text: str = Form(''), cipher: bool = Form(False)):
     try:
         if cipher:
-            fake_rsa, public_key, private_key, encrypted_des_key, encrypted_des_iv = create_keys()
-            if mail_subject:
-                mail_subject = encrypt_message(
-                    input_message=mail_subject,
-                    key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
-                    iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv)
-                )
-            mail_text = encrypt_message(
-                input_message=mail_text,
-                key=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_key),
-                iv=PKCS1_OAEP.new(rsa).decrypt(encrypted_des_iv)
-            )
-            cipher_header = 'Cipher: True'
-            rsa_header = f'RSA: {rsa}'
-            des_key_header = f'DES_key: {encrypted_des_key}'
-            des_iv_header = f'DES_IV: {encrypted_des_iv}'
+            try:
+                async_session = async_session_maker()
+                async with async_session.begin():
+                    result = await async_session.execute(
+                        select(post_account).where(post_account.c.login == 'nastya.mam4ur@rambler.ru'))
+                    post_account_data = result.fetchone()
+
+                if post_account_data:
+                    private_key = RSA.import_key(post_account_data.private_key)
+                    public_key = RSA.import_key(post_account_data.public_key)
+                    encrypted_des_key = post_account_data.encrypted_des_key
+                    encrypted_des_iv = post_account_data.encrypted_des_iv
+
+                    if mail_subject:
+                        mail_subject = encrypt_message(
+                            input_message=mail_subject,
+                            key=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_key),
+                            iv=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_iv)
+                        )
+                    mail_text = encrypt_message(
+                        input_message=mail_text,
+                        key=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_key),
+                        iv=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_iv)
+                    )
+                    cipher_header = 'Cipher: True'
+            except Exception as err:
+                print(err)
+                cipher_header = 'Cipher: False'
         else:
             cipher_header = 'Cipher: False'
-            rsa_header = 'RSA: False'
-            des_key_header = 'DES_key: False'
-            des_iv_header = 'DES_IV: False'
 
         #await add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text)
-        await smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, str(mail_text), cipher_header,
-                              rsa_header, des_key_header, des_iv_header)
+        await smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, str(mail_text), cipher_header)
     except Exception as err:
         print(err)
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
@@ -88,3 +99,27 @@ def delete_email(message_id, folder='Trash'):
     except Exception as err:
         print(err)
     return RedirectResponse(f'/pages/base?folder={folder}', status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.post('/add-mail-account/')
+async def add_mail_account(post_server: int = Form(...), login: str = Form(...), password: str = Form(...)):
+    db = async_session_maker()
+    public_key, private_key, encrypted_des_key, encrypted_des_iv = create_keys()
+    try:
+        await imap_read_email(login, password, 'INBOX')
+        await db.execute(
+            post_account.insert().values(
+                post_server=post_server,
+                login=login,
+                password=password,
+                private_key=private_key,
+                public_key=public_key,
+                encrypted_des_key=encrypted_des_key,
+                encrypted_des_iv=encrypted_des_iv,
+            )
+        )
+        await db.commit()
+    except Exception as err:
+        print(err)
+
+    return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)

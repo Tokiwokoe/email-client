@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Добавить почтовый аккаунт</h1>
+    <form action="/add-mail-account" method="post">
+        <label for="post_server">Почтовый сервер:</label>
+        <input type="text" name="post_server" required><br>
+
+        <label for="login">Логин:</label>
+        <input type="email" name="login" required><br>
+
+        <label for="password">Пароль:</label>
+        <input type="password" name="password" required><br>
+
+        <input type="submit" value="Добавить почтовый аккаунт">
+    </form>
+{% endblock content %}
