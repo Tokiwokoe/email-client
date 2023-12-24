@@ -1,22 +1,18 @@
 import ast
-import asyncio
 import imaplib
 import email
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
-from Crypto.PublicKey.RSA import RsaKey
 from PIL import Image
 import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
 from sqlalchemy import select
-
-from config import PASSWORD
 from cryptography.services import decrypt_message
 from database import async_session_maker
 from models.models import email_letter, post_account
+
 
 SMTP_SERVER = 'smtp.rambler.ru'
 SMTP_PORT = 465
@@ -29,7 +25,6 @@ async def imap_read_email(imap_login, imap_password, folder):
         server.login(imap_login, imap_password)
 
         response, folders = server.list()
-
         server.select(folder)
 
         mails = []
@@ -37,14 +32,14 @@ async def imap_read_email(imap_login, imap_password, folder):
         messages = messages[0].split(b' ')
         message_id = 1
         for message in messages:
-            mails.append(await print_email(message, server, message_id))
+            mails.append(await print_email(message, server, message_id, folder))
             message_id += 1
 
         server.close()
         return mails
 
 
-async def print_email(message, server, message_id):
+async def print_email(message, server, message_id, folder):
     mail = {}
     response, msg = server.fetch(message, '(RFC822)')
     email_message = email.message_from_bytes(msg[0][1])
@@ -52,6 +47,7 @@ async def print_email(message, server, message_id):
 
     is_encrypted = 'Cipher: True' in cipher_header
 
+    mail['Folder'] = folder
     frm = email.header.decode_header(email_message['From'])[0][0]
     mail['From'] = frm if type(frm) is str else frm.decode("utf-8")
     sbj = email.header.decode_header(email_message['To'])[0][0]

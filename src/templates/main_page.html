@@ -20,7 +20,7 @@
                 <form method="post" action="" style="display: inline-block; margin-right: 10px;">
                     <button type="submit">Прочитать</button>
                 </form>
-                <form method="post" action="/delete-email/{{ mail['Message-ID'] }}" style="display: inline-block;">
+                <form method="post" action="/delete-email/{{ mail['Message-ID'] }}/{{ mail['Folder'] }}" style="display: inline-block;">
                     <button type="submit" class="delete-button">Удалить</button>
                 </form>
             </li>

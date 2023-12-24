@@ -3,14 +3,14 @@ from Crypto.PublicKey import RSA
 from sqlalchemy import select
 from starlette.responses import RedirectResponse
 from config import PASSWORD
-from fastapi import FastAPI, status, Request, Form
+from fastapi import FastAPI, status, Form
 from fastapi_users import FastAPIUsers
 from auth.auth import auth_backend
 from auth.manager import get_user_manager
 from auth.schemas import UserRead, UserCreate
 from database import User, async_session_maker
 from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database, delete_email_by_number
-from models.models import post_account, post_server as post_server_model
+from models.models import post_account
 from pages.router import router as router_pages
 from cryptography.services import encrypt_message, create_keys
 
@@ -90,8 +90,8 @@ async def send_email(smtp_login: str = Form(...), receiver: str = Form(...), mai
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
 
 
-@app.post('/delete-email/{message_id}', response_class=RedirectResponse)
-def delete_email(message_id, folder='Trash'):
+@app.post('/delete-email/{message_id}/{folder}', response_class=RedirectResponse)
+def delete_email(message_id, folder):
     smtp_login = 'nastya.mam4ur@rambler.ru'
     smtp_password = PASSWORD
     try:
