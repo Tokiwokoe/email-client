@@ -1,16 +1,17 @@
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.sql import crud
 from starlette.responses import RedirectResponse
 from config import PASSWORD
-from fastapi import FastAPI, status, Form
+from fastapi import FastAPI, status, Form, Depends, HTTPException
 from fastapi_users import FastAPIUsers
 from auth.auth import auth_backend
 from auth.manager import get_user_manager
 from auth.schemas import UserRead, UserCreate
 from database import User, async_session_maker
 from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database, delete_email_by_number
-from models.models import post_account
+from models.models import post_account, user
 from pages.router import router as router_pages
 from cryptography.services import encrypt_message, create_keys
 
@@ -49,7 +50,8 @@ async def read_email(imap_login, folder):
 
 
 @app.post('/send-email')
-async def send_email(smtp_login: str = Form(...), receiver: str = Form(...), mail_subject: str = Form(''), mail_text: str = Form(''), cipher: bool = Form(False)):
+async def send_email(smtp_login: str = Form(...), receiver: str = Form(...), mail_subject: str = Form(''),
+                     mail_text: str = Form(''), cipher: bool = Form(False)):
     try:
         if cipher:
             try:
@@ -122,4 +124,17 @@ async def add_mail_account(post_server: int = Form(...), login: str = Form(...),
     except Exception as err:
         print(err)
 
+    return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.put('/users/accounts/{account_id}/switch')
+async def switch_current_account(account_id: int, active_user: User = Depends(current_user)):
+    async_session = async_session_maker()
+    if user:
+        async with async_session.begin():
+            result = await async_session.execute(
+                update(user).where(user.c.id == int(active_user.id)).values(current_account_id=account_id)
+            )
+
+        user.current_account_id = account_id
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)

@@ -43,6 +43,7 @@ user = Table(
     Column('is_active', Boolean, default=True, nullable=False),
     Column('is_superuser', Boolean, default=False, nullable=False),
     Column('is_verified', Boolean, default=False, nullable=False),
+    Column('current_account_id', ForeignKey('post_account.id'), nullable=True),
 )
 
 
