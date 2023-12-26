@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.templating import Jinja2Templates
-from config import PASSWORD
+from account.services import get_current_account_info, current_user
+from database import User
 from mail.services import imap_read_email
 import imaplib
+
 
 router = APIRouter(
     prefix='/pages',
@@ -13,11 +15,14 @@ templates = Jinja2Templates(directory='templates')
 
 
 @router.get('/base')
-async def get_base_template(request: Request):
+async def get_base_template(request: Request, active_user: User = Depends(current_user)):
     folder = request.query_params.get('folder')
     if folder:
         try:
-            emails = await imap_read_email('nastya.mam4ur@rambler.ru', PASSWORD, folder)
+            post_account_data = await get_current_account_info(active_user)
+            login = post_account_data.login
+            password = post_account_data.password
+            emails = await imap_read_email(login, password, folder)
         except imaplib.IMAP4.error:
             emails = []
     else:
@@ -32,4 +37,9 @@ def get_base_template(request: Request):
 
 @router.get('/add-mail-account/')
 async def add_mail_account_form(request: Request):
-    return templates.TemplateResponse("add_mail_account.html", {"request": request})
+    return templates.TemplateResponse('add_mail_account.html', {'request': request})
+
+
+@router.get('/change-mail-account/')
+async def change_post_account(request: Request):
+    return templates.TemplateResponse('change_post_account.html', {'request': request})

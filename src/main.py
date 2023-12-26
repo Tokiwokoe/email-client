@@ -1,13 +1,11 @@
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
-from sqlalchemy import select, update
-from sqlalchemy.sql import crud
+from sqlalchemy import update
 from starlette.responses import RedirectResponse
+from account.services import fastapi_users, current_user, get_current_account_info
 from config import PASSWORD
-from fastapi import FastAPI, status, Form, Depends, HTTPException
-from fastapi_users import FastAPIUsers
+from fastapi import FastAPI, status, Form, Depends
 from auth.auth import auth_backend
-from auth.manager import get_user_manager
 from auth.schemas import UserRead, UserCreate
 from database import User, async_session_maker
 from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database, delete_email_by_number
@@ -22,10 +20,6 @@ smtp_password = PASSWORD
 
 app = FastAPI()
 
-fastapi_users = FastAPIUsers[User, int](
-    get_user_manager,
-    [auth_backend],
-)
 
 app.include_router(
     fastapi_users.get_auth_router(auth_backend),
@@ -41,26 +35,16 @@ app.include_router(
 
 app.include_router(router_pages)
 
-current_user = fastapi_users.current_user()
-
-
-@app.get('/read-email/{imap_login}%{{folder}}')
-async def read_email(imap_login, folder):
-    return await imap_read_email(imap_login, imap_password, folder)
-
 
 @app.post('/send-email')
-async def send_email(smtp_login: str = Form(...), receiver: str = Form(...), mail_subject: str = Form(''),
-                     mail_text: str = Form(''), cipher: bool = Form(False)):
+async def send_email(receiver: str = Form(...), mail_subject: str = Form(''),
+                     mail_text: str = Form(''), cipher: bool = Form(False), active_user: User = Depends(current_user)):
     try:
+        post_account_data = await get_current_account_info(active_user)
+        login = post_account_data.login
+        password = post_account_data.password
         if cipher:
             try:
-                async_session = async_session_maker()
-                async with async_session.begin():
-                    result = await async_session.execute(
-                        select(post_account).where(post_account.c.login == 'nastya.mam4ur@rambler.ru'))
-                    post_account_data = result.fetchone()
-
                 if post_account_data:
                     private_key = RSA.import_key(post_account_data.private_key)
                     public_key = RSA.import_key(post_account_data.public_key)
@@ -85,19 +69,20 @@ async def send_email(smtp_login: str = Form(...), receiver: str = Form(...), mai
         else:
             cipher_header = 'Cipher: False'
 
-        #await add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_text)
-        await smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, str(mail_text), cipher_header)
+        #await add_send_mail_to_database(login, receiver, mail_subject, mail_text)
+        await smtp_send_email(login, password, receiver, mail_subject, str(mail_text), cipher_header)
     except Exception as err:
         print(err)
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.post('/delete-email/{message_id}/{folder}', response_class=RedirectResponse)
-def delete_email(message_id, folder):
-    smtp_login = 'nastya.mam4ur@rambler.ru'
-    smtp_password = PASSWORD
+async def delete_email(message_id, folder, active_user: User = Depends(current_user)):
+    post_account_data = await get_current_account_info(active_user)
+    login = post_account_data.login
+    password = post_account_data.password
     try:
-        deleted_message = delete_email_by_number(smtp_login, smtp_password, message_id, folder)
+        deleted_message = delete_email_by_number(login, password, message_id, folder)
     except Exception as err:
         print(err)
     return RedirectResponse(f'/pages/base?folder={folder}', status_code=status.HTTP_303_SEE_OTHER)
@@ -130,7 +115,7 @@ async def add_mail_account(post_server: int = Form(...), login: str = Form(...),
 @app.put('/users/accounts/{account_id}/switch')
 async def switch_current_account(account_id: int, active_user: User = Depends(current_user)):
     async_session = async_session_maker()
-    if user:
+    if active_user:
         async with async_session.begin():
             result = await async_session.execute(
                 update(user).where(user.c.id == int(active_user.id)).values(current_account_id=account_id)
