@@ -22,7 +22,8 @@ async def get_base_template(request: Request, active_user: User = Depends(curren
             post_account_data = await get_current_account_info(active_user)
             login = post_account_data.login
             password = post_account_data.password
-            emails = await imap_read_email(login, password, folder)
+            post_server = post_account_data.post_server
+            emails = await imap_read_email(login, password, folder, post_server)
         except imaplib.IMAP4.error:
             emails = []
     else:

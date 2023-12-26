@@ -14,18 +14,44 @@ from database import async_session_maker
 from models.models import email_letter, post_account
 
 
-SMTP_SERVER = 'smtp.rambler.ru'
-SMTP_PORT = 465
-IMAP_SERVER = 'imap.rambler.ru'
-IMAP_PORT = 993
+async def get_post_server_info(post_server_id):
+    if post_server_id == 1:
+        post_server_data = {
+            'SMTP_SERVER': 'smtp.rambler.ru',
+            'SMTP_PORT': 465,
+            'IMAP_SERVER': 'imap.rambler.ru',
+            'IMAP_PORT': 993,
+            'INBOX': 'INBOX',
+            'SentBox': 'SentBox',
+            'Spam': 'Spam',
+            'DraftBox': 'DraftBox',
+            'Trash': 'Trash'
+        }
+    elif post_server_id == 2:
+        post_server_data = {
+            'SMTP_SERVER': 'smtp.yandex.ru',
+            'SMTP_PORT': 465,
+            'IMAP_SERVER': 'imap.yandex.ru',
+            'IMAP_PORT': 993,
+            'INBOX': 'INBOX',
+            'SentBox': 'Sent',
+            'Spam': 'Spam',
+            'DraftBox': 'Drafts',
+            'Trash': 'Trash'
+        }
+    else:
+        post_server_data = {}
+
+    return post_server_data
 
 
-async def imap_read_email(imap_login, imap_password, folder):
-    with imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT) as server:
+async def imap_read_email(imap_login, imap_password, folder, post_server):
+    post_server_data = await get_post_server_info(post_server)
+    with imaplib.IMAP4_SSL(post_server_data['IMAP_SERVER'], post_server_data['IMAP_PORT']) as server:
         server.login(imap_login, imap_password)
 
         response, folders = server.list()
-        server.select(folder)
+        server.select(post_server_data[folder])
 
         mails = []
         response, messages = server.search(None, 'ALL')
@@ -89,7 +115,7 @@ async def print_email(message, server, message_id, folder):
             async_session = async_session_maker()
             async with async_session.begin():
                 result = await async_session.execute(
-                    select(post_account).where(post_account.c.login == 'nastya.mam4ur@rambler.ru'))
+                    select(post_account).where(post_account.c.login == str(mail['From'])))
                 post_account_data = result.fetchone()
 
             if post_account_data:
@@ -113,7 +139,8 @@ async def print_email(message, server, message_id, folder):
     return mail
 
 
-def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header):
+async def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header, post_server):
+    post_server_data = await get_post_server_info(post_server)
     msg = MIMEMultipart()
     msg['From'] = smtp_login
     msg['To'] = receiver
@@ -124,7 +151,7 @@ def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text
     msg.attach(MIMEText(text))
     msg.add_header('X-Cipher-Header', cipher_header)
 
-    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as server:
+    with smtplib.SMTP_SSL(post_server_data['SMTP_SERVER'], post_server_data['SMTP_PORT']) as server:
         try:
             server.login(smtp_login, smtp_password)
             server.sendmail(smtp_login, [receiver], msg.as_string())
@@ -133,11 +160,12 @@ def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text
             return 'При отправке произошла ошибка!'
 
 
-def delete_email_by_number(imap_login, imap_password, email_number, folder):
+async def delete_email_by_number(imap_login, imap_password, email_number, folder, post_server):
     try:
-        with imaplib.IMAP4_SSL(IMAP_SERVER, IMAP_PORT) as server:
+        post_server_data = await get_post_server_info(post_server)
+        with imaplib.IMAP4_SSL(post_server_data['IMAP_SERVER'], post_server_data['IMAP_PORT']) as server:
             server.login(imap_login, imap_password)
-            server.select(folder)
+            server.select(post_server_data[folder])
             if folder != 'Trash':
                 server.copy(email_number, 'Trash')
             server.store(email_number, '+FLAGS', '(\Deleted)')

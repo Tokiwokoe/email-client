@@ -3,7 +3,6 @@ from Crypto.PublicKey import RSA
 from sqlalchemy import update
 from starlette.responses import RedirectResponse
 from account.services import fastapi_users, current_user, get_current_account_info
-from config import PASSWORD
 from fastapi import FastAPI, status, Form, Depends
 from auth.auth import auth_backend
 from auth.schemas import UserRead, UserCreate
@@ -12,10 +11,6 @@ from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_dat
 from models.models import post_account, user
 from pages.router import router as router_pages
 from cryptography.services import encrypt_message, create_keys
-
-
-imap_password = PASSWORD
-smtp_password = PASSWORD
 
 
 app = FastAPI()
@@ -43,6 +38,7 @@ async def send_email(receiver: str = Form(...), mail_subject: str = Form(''),
         post_account_data = await get_current_account_info(active_user)
         login = post_account_data.login
         password = post_account_data.password
+        post_server = post_account_data.post_server
         if cipher:
             try:
                 if post_account_data:
@@ -70,7 +66,7 @@ async def send_email(receiver: str = Form(...), mail_subject: str = Form(''),
             cipher_header = 'Cipher: False'
 
         #await add_send_mail_to_database(login, receiver, mail_subject, mail_text)
-        await smtp_send_email(login, password, receiver, mail_subject, str(mail_text), cipher_header)
+        await smtp_send_email(login, password, receiver, mail_subject, str(mail_text), cipher_header, post_server)
     except Exception as err:
         print(err)
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
@@ -81,8 +77,9 @@ async def delete_email(message_id, folder, active_user: User = Depends(current_u
     post_account_data = await get_current_account_info(active_user)
     login = post_account_data.login
     password = post_account_data.password
+    post_server = post_account_data.post_server
     try:
-        deleted_message = delete_email_by_number(login, password, message_id, folder)
+        deleted_message = await delete_email_by_number(login, password, message_id, folder, post_server)
     except Exception as err:
         print(err)
     return RedirectResponse(f'/pages/base?folder={folder}', status_code=status.HTTP_303_SEE_OTHER)
@@ -93,7 +90,7 @@ async def add_mail_account(post_server: int = Form(...), login: str = Form(...),
     db = async_session_maker()
     public_key, private_key, encrypted_des_key, encrypted_des_iv = create_keys()
     try:
-        await imap_read_email(login, password, 'INBOX')
+        await imap_read_email(login, password, 'INBOX', post_server)
         await db.execute(
             post_account.insert().values(
                 post_server=post_server,
