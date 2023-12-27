@@ -1,3 +1,7 @@
+import os
+import shutil
+import uuid
+
 from Crypto.Cipher import DES, PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
@@ -33,6 +37,36 @@ def decrypt_message(input_message: bytes, key: bytes, iv: bytes) -> str:
         except ValueError:
             decrypted_message += decrypted_block
     return decrypted_message.decode('utf-8')
+
+
+def encrypt_file(input_file, output_file, key, iv):
+    cipher = DES.new(key, DES.MODE_CBC, iv)
+    with open(input_file, 'rb') as file_in, open(output_file, 'wb') as file_out:
+        while True:
+            chunk = file_in.read()
+            if len(chunk) == 0:
+                break
+            elif len(chunk) % 8 != 0:
+                chunk = pad(chunk, 8)
+            encrypted_chunk = cipher.encrypt(chunk)
+            file_out.write(encrypted_chunk)
+    with open(output_file, 'rb') as file_out:
+        return file_out.read()
+
+
+def decrypt_file(input_file, output_file, key, iv):
+    cipher = DES.new(key, DES.MODE_CBC, iv)
+    with open(input_file, 'rb') as file_in, open(output_file, 'wb') as file_out:
+        while True:
+            chunk = file_in.read()
+            if len(chunk) == 0:
+                break
+            decrypted_chunk = cipher.decrypt(chunk)
+            try:
+                file_out.write(unpad(decrypted_chunk, 8))
+            except ValueError:
+                file_out.write(decrypted_chunk)
+    return output_file
 
 
 def create_keys():

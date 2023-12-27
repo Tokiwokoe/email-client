@@ -13,7 +13,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from sqlalchemy import select
-from cryptography.services import decrypt_message
+from cryptography.services import decrypt_message, decrypt_file
 from database import async_session_maker
 from models.models import email_letter, post_account
 
@@ -114,7 +114,10 @@ async def print_email(message, server, message_id, folder):
                         img = Image.open(img_stream)
                         img.show()
                 if '.txt' in decoded_filename:
-                    file_content = part.get_payload(decode=True).decode('utf-8')
+                    try:
+                        file_content = part.get_payload(decode=True).decode('utf-8')
+                    except Exception:
+                        file_content = part.get_payload(decode=False)
                     mail['Attachment'] = file_content
     if is_encrypted:
         try:
@@ -123,7 +126,6 @@ async def print_email(message, server, message_id, folder):
                 result = await async_session.execute(
                     select(post_account).where(post_account.c.login == str(mail['To'])))
                 post_account_data = result.fetchone()
-
             if post_account_data:
                 private_key = RSA.import_key(post_account_data.private_key)
                 async with async_session.begin():
@@ -142,14 +144,25 @@ async def print_email(message, server, message_id, folder):
                     key=des_key,
                     iv=des_iv
                 )
-        except ValueError:
+                try:
+                    if 'Attachment' in mail:
+                        mail['Attachment'] = decrypt_file(
+                            input_file=f'uploads/{filename}',
+                            output_file=f'uploads/decrypted_{filename}',
+                            key=des_key,
+                            iv=des_iv
+                        )
+                except Exception as err:
+                    print(err)
+        except ValueError as err:
+            print(err)
             mail['Text'] = 'Ключи для дешифрования утеряны'
             mail['Subject'] = 'Ключи для дешифрования утеряны'
     return mail
 
 
 async def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header, post_server,
-                          encrypted_des_key, encrypted_des_iv, filename):
+                          encrypted_des_key, encrypted_des_iv, file_path):
     post_server_data = await get_post_server_info(post_server)
     msg = MIMEMultipart()
     msg['From'] = smtp_login
@@ -163,14 +176,14 @@ async def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mai
     msg.add_header('encrypted_des_key', str(encrypted_des_key))
     msg.add_header('encrypted_des_iv', str(encrypted_des_iv))
 
-    if filename:
-        with open(filename, "rb") as attachment:
+    if file_path:
+        with open(file_path, "rb") as attachment:
             part = MIMEBase("application", "octet-stream")
             part.set_payload(attachment.read())
         encoders.encode_base64(part)
         part.add_header(
             "Content-Disposition",
-            f"attachment; filename={os.path.basename(filename)}",
+            f"attachment; filename={os.path.basename(file_path)}",
         )
         msg.attach(part)
 

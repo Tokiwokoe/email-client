@@ -1,7 +1,6 @@
 import os
 import shutil
 import uuid
-
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from sqlalchemy import update, select
@@ -14,8 +13,7 @@ from database import User, async_session_maker
 from mail.services import imap_read_email, smtp_send_email, add_send_mail_to_database, delete_email_by_number
 from models.models import post_account, user
 from pages.router import router as router_pages
-from cryptography.services import encrypt_message, create_keys
-
+from cryptography.services import encrypt_message, create_keys, encrypt_file
 
 app = FastAPI()
 
@@ -45,6 +43,9 @@ async def send_email(receiver: str = Form(...), mail_subject: str = Form(''),
         login = post_account_data.login
         password = post_account_data.password
         post_server = post_account_data.post_server
+
+        file_path = None
+
         if cipher:
             try:
                 async with async_session.begin():
@@ -81,14 +82,24 @@ async def send_email(receiver: str = Form(...), mail_subject: str = Form(''),
             encrypted_des_iv = ''
         if signature:
             pass
+
         if file:
             original_extension = os.path.splitext(file.filename)[1]
-            safe_filename = f"{uuid.uuid4()}{original_extension}"
-            file_path = f'uploads/{safe_filename}'
-            with open(file_path, "wb") as buffer:
+            safe_filename = f'{uuid.uuid4()}{original_extension}'
+            temp_file_path = f'uploads/{safe_filename}'
+            temp_enc_file_path = f'uploads/encrypted_{safe_filename}'
+
+            with open(temp_file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-        else:
-            file_path = None
+
+            if cipher:
+                encrypted_data = encrypt_file(temp_file_path, temp_enc_file_path, des_key, des_iv)
+                encrypted_file_path = f'uploads/encrypted_{safe_filename}'
+                with open(encrypted_file_path, "wb") as encrypted_file:
+                    encrypted_file.write(encrypted_data)
+                file_path = encrypted_file_path
+            else:
+                file_path = temp_file_path
 
         #await add_send_mail_to_database(login, receiver, mail_subject, mail_text)
         await smtp_send_email(login, password, receiver, mail_subject, str(mail_text), cipher_header, post_server,
@@ -148,7 +159,7 @@ async def switch_current_account(account_id: int, active_user: User = Depends(cu
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
 
 
-@app.get("/download/{filename}")
+@app.get('/download/uploads/{filename}')
 async def download_file(filename: str):
     file_path = f'uploads/{filename}'
     if not os.path.exists(file_path):
