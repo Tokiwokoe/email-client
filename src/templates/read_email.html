@@ -5,6 +5,7 @@
     <strong>От:</strong> {{ mail['From'] }}<br>
     <p><strong>Тема:</strong> {{ mail['Subject'] }}<br></p>
     <p><strong>Текст:</strong> {{ mail['Text'] }}<br></p>
+    <p><strong>Вложение:</strong> {% if mail['Attachment'] %}<a href="/download/{{ mail['Attachment'] }}">{{ mail['Attachment'] }}</a>{% else %}Нет вложений{% endif %}</p>
 </div>
 {% endfor %}
 {% endblock content %}

@@ -1,6 +1,10 @@
 import ast
 import imaplib
 import email
+import os
+from email import encoders
+from email.mime.base import MIMEBase
+
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from PIL import Image
@@ -145,7 +149,7 @@ async def print_email(message, server, message_id, folder):
 
 
 async def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header, post_server,
-                          encrypted_des_key, encrypted_des_iv):
+                          encrypted_des_key, encrypted_des_iv, filename):
     post_server_data = await get_post_server_info(post_server)
     msg = MIMEMultipart()
     msg['From'] = smtp_login
@@ -158,6 +162,17 @@ async def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mai
     msg.add_header('X-Cipher-Header', cipher_header)
     msg.add_header('encrypted_des_key', str(encrypted_des_key))
     msg.add_header('encrypted_des_iv', str(encrypted_des_iv))
+
+    if filename:
+        with open(filename, "rb") as attachment:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+        encoders.encode_base64(part)
+        part.add_header(
+            "Content-Disposition",
+            f"attachment; filename={os.path.basename(filename)}",
+        )
+        msg.attach(part)
 
     with smtplib.SMTP_SSL(post_server_data['SMTP_SERVER'], post_server_data['SMTP_PORT']) as server:
         try:

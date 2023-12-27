@@ -1,9 +1,13 @@
+import os
+import shutil
+import uuid
+
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from sqlalchemy import update, select
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, FileResponse
 from account.services import fastapi_users, current_user, get_current_account_info
-from fastapi import FastAPI, status, Form, Depends
+from fastapi import FastAPI, status, Form, Depends, UploadFile, File, HTTPException
 from auth.auth import auth_backend
 from auth.schemas import UserRead, UserCreate
 from database import User, async_session_maker
@@ -33,7 +37,8 @@ app.include_router(router_pages)
 
 @app.post('/send-email')
 async def send_email(receiver: str = Form(...), mail_subject: str = Form(''),
-                     mail_text: str = Form(''), cipher: bool = Form(False), active_user: User = Depends(current_user)):
+                     mail_text: str = Form(''), cipher: bool = Form(False), signature: bool = Form(False),
+                     file: UploadFile = File(None), active_user: User = Depends(current_user)):
     try:
         async_session = async_session_maker()
         post_account_data = await get_current_account_info(active_user)
@@ -74,9 +79,20 @@ async def send_email(receiver: str = Form(...), mail_subject: str = Form(''),
             cipher_header = 'Cipher: False'
             encrypted_des_key = ''
             encrypted_des_iv = ''
+        if signature:
+            pass
+        if file:
+            original_extension = os.path.splitext(file.filename)[1]
+            safe_filename = f"{uuid.uuid4()}{original_extension}"
+            file_path = f'uploads/{safe_filename}'
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+        else:
+            file_path = None
+
         #await add_send_mail_to_database(login, receiver, mail_subject, mail_text)
         await smtp_send_email(login, password, receiver, mail_subject, str(mail_text), cipher_header, post_server,
-                              encrypted_des_key, encrypted_des_iv)
+                              encrypted_des_key, encrypted_des_iv, file_path)
     except Exception as err:
         print(err)
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
@@ -130,3 +146,11 @@ async def switch_current_account(account_id: int, active_user: User = Depends(cu
 
         user.current_account_id = account_id
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.get("/download/{filename}")
+async def download_file(filename: str):
+    file_path = f'uploads/{filename}'
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(file_path)

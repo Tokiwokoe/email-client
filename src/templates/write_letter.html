@@ -1,9 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <h1>Отправка Email</h1>
-    <form action="/send-email" method="post">
-        <input type="hidden" name="smtp_login" value="anastasia.mam4ur@yandex.ru">
-
+    <form action="/send-email" method="post" enctype="multipart/form-data">
         <label for="receiver">Получатель:</label>
         <input type="email" name="receiver" required><br>
 
@@ -12,6 +10,9 @@
 
         <label for="mail_text">Текст:</label><br>
         <textarea name="mail_text" rows="5" cols="40"></textarea><br>
+
+        <label for="file">Прикрепить файл:</label>
+        <input type="file" name="file"><br>
 
         <input type="checkbox" name="cipher" id="cipher">
         <label for="cipher">Шифрование</label><br>
