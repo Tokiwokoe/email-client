@@ -42,6 +42,5 @@ def create_keys():
 
     des = get_random_bytes(8)
     iv = get_random_bytes(8)
-    encrypted_des_key = PKCS1_OAEP.new(RSA.import_key(public_key)).encrypt(des)
-    encrypted_des_iv = PKCS1_OAEP.new(RSA.import_key(public_key)).encrypt(iv)
-    return public_key, private_key, encrypted_des_key, encrypted_des_iv
+
+    return public_key, private_key, des, iv

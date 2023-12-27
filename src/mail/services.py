@@ -70,6 +70,8 @@ async def print_email(message, server, message_id, folder):
     response, msg = server.fetch(message, '(RFC822)')
     email_message = email.message_from_bytes(msg[0][1])
     cipher_header = email_message.get('X-Cipher-Header', 'Cipher: False')
+    encrypted_des_key = email_message.get('encrypted_des_key')
+    encrypted_des_iv = email_message.get('encrypted_des_iv')
 
     is_encrypted = 'Cipher: True' in cipher_header
 
@@ -115,23 +117,26 @@ async def print_email(message, server, message_id, folder):
             async_session = async_session_maker()
             async with async_session.begin():
                 result = await async_session.execute(
-                    select(post_account).where(post_account.c.login == str(mail['From'])))
+                    select(post_account).where(post_account.c.login == str(mail['To'])))
                 post_account_data = result.fetchone()
 
             if post_account_data:
                 private_key = RSA.import_key(post_account_data.private_key)
-                public_key = RSA.import_key(post_account_data.public_key)
-                encrypted_des_key = post_account_data.encrypted_des_key
-                encrypted_des_iv = post_account_data.encrypted_des_iv
+                async with async_session.begin():
+                    result = await async_session.execute(
+                        select(post_account).where(post_account.c.login == str(mail['From'])))
+                    post_account_data = result.fetchone()
+                des_key = PKCS1_OAEP.new(private_key).decrypt(ast.literal_eval(encrypted_des_key))
+                des_iv = PKCS1_OAEP.new(private_key).decrypt(ast.literal_eval(encrypted_des_iv))
                 mail['Text'] = decrypt_message(
                     input_message=ast.literal_eval(mail['Text']),
-                    key=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_key),
-                    iv=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_iv)
+                    key=des_key,
+                    iv=des_iv
                 )
                 mail['Subject'] = decrypt_message(
                     input_message=ast.literal_eval(mail['Subject']),
-                    key=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_key),
-                    iv=PKCS1_OAEP.new(private_key).decrypt(encrypted_des_iv)
+                    key=des_key,
+                    iv=des_iv
                 )
         except ValueError:
             mail['Text'] = 'Ключи для дешифрования утеряны'
@@ -139,7 +144,8 @@ async def print_email(message, server, message_id, folder):
     return mail
 
 
-async def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header, post_server):
+async def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mail_text, cipher_header, post_server,
+                          encrypted_des_key, encrypted_des_iv):
     post_server_data = await get_post_server_info(post_server)
     msg = MIMEMultipart()
     msg['From'] = smtp_login
@@ -150,13 +156,17 @@ async def smtp_send_email(smtp_login, smtp_password, receiver, mail_subject, mai
     text = mail_text
     msg.attach(MIMEText(text))
     msg.add_header('X-Cipher-Header', cipher_header)
+    msg.add_header('encrypted_des_key', str(encrypted_des_key))
+    msg.add_header('encrypted_des_iv', str(encrypted_des_iv))
 
     with smtplib.SMTP_SSL(post_server_data['SMTP_SERVER'], post_server_data['SMTP_PORT']) as server:
         try:
             server.login(smtp_login, smtp_password)
             server.sendmail(smtp_login, [receiver], msg.as_string())
+            print('Успешно отправлено')
             return 'Успешно отправлено'
-        except Exception:
+        except Exception as err:
+            print(err)
             return 'При отправке произошла ошибка!'
 
 

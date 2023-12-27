@@ -28,8 +28,8 @@ post_account = Table(
     Column('password', String, nullable=False),
     Column('private_key', LargeBinary, nullable=False),
     Column('public_key', LargeBinary, nullable=False),
-    Column('encrypted_des_key', LargeBinary, nullable=False),
-    Column('encrypted_des_iv', LargeBinary, nullable=False),
+    Column('des_key', LargeBinary, nullable=False),
+    Column('des_iv', LargeBinary, nullable=False),
 )
 
 
