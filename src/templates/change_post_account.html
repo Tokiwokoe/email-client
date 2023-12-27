@@ -1,4 +1,15 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Hello</h1>
+<div class="container">
+    <ul>
+        {% for account in accounts %}
+        <li style="margin-bottom: 35px">
+            <strong>Логин:</strong> {{ account['Login'] }}<br>
+                <form method="post" action="/users/accounts/{{ account['Id'] }}/switch" style="display: inline-block;">
+                    <button type="submit" class="select-button">Выбрать</button>
+                </form>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
 {% endblock content %}

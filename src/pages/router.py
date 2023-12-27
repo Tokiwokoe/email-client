@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends
 from fastapi.templating import Jinja2Templates
-from account.services import get_current_account_info, current_user
+from account.services import get_current_account_info, current_user, get_users_accounts_info
 from database import User
 from mail.services import imap_read_email
 import imaplib
@@ -42,5 +42,9 @@ async def add_mail_account_form(request: Request):
 
 
 @router.get('/change-mail-account/')
-async def change_post_account(request: Request):
-    return templates.TemplateResponse('change_post_account.html', {'request': request})
+async def change_post_account(request: Request, active_user: User = Depends(current_user)):
+    try:
+        post_accounts = await get_users_accounts_info(active_user)
+    except Exception:
+        post_accounts = []
+    return templates.TemplateResponse('change_post_account.html', {'request': request, 'accounts': post_accounts})

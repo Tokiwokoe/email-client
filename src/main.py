@@ -109,7 +109,7 @@ async def add_mail_account(post_server: int = Form(...), login: str = Form(...),
     return RedirectResponse(f'/pages/base', status_code=status.HTTP_303_SEE_OTHER)
 
 
-@app.put('/users/accounts/{account_id}/switch')
+@app.post('/users/accounts/{account_id}/switch')
 async def switch_current_account(account_id: int, active_user: User = Depends(current_user)):
     async_session = async_session_maker()
     if active_user:
