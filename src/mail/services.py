@@ -75,24 +75,24 @@ async def print_email(message, server, message_id, folder):
 
     mail['Folder'] = folder
     frm = email.header.decode_header(email_message['From'])[0][0]
-    mail['From'] = frm if type(frm) is str else frm.decode("utf-8")
+    mail['From'] = frm if type(frm) is str else frm.decode('utf-8')
     sbj = email.header.decode_header(email_message['To'])[0][0]
     mail['To'] = sbj
     subject = email.header.decode_header(email_message['Subject'])[0][0]
-    mail['Subject'] = subject if type(subject) is str else subject.decode("utf-8")
+    mail['Subject'] = subject if type(subject) is str else subject.decode('utf-8')
     mail['Message-ID'] = message_id
     if email_message.is_multipart():
         for part in email_message.walk():
             content_type = part.get_content_type()
-            content_disposition = str(part.get("Content-Disposition"))
+            content_disposition = str(part.get('Content-Disposition'))
 
-            if "attachment" not in content_disposition:
-                if content_type == "text/plain":
+            if 'attachment' not in content_disposition:
+                if content_type == 'text/plain':
                     mail['Text'] = part.get_payload(decode=True).decode('utf-8')
     else:
         content_type = email_message.get_content_type()
 
-        if content_type == "text/plain":
+        if content_type == 'text/plain':
             mail['Text'] = email_message.get_payload(decode=True).decode('utf-8')
     for part in email_message.walk():
         filename = part.get_filename()
@@ -103,11 +103,11 @@ async def print_email(message, server, message_id, folder):
             mail['Attachment'] = decoded_filename
             payload = part.get_payload(decode=True)
             if payload:
-                if "image" in content_type:
+                if 'image' in content_type:
                     with io.BytesIO(payload) as img_stream:
                         img = Image.open(img_stream)
                         img.show()
-                if ".txt" in decoded_filename:
+                if '.txt' in decoded_filename:
                     file_content = part.get_payload(decode=True).decode('utf-8')
                     mail['Attachment'] = file_content
     if is_encrypted:
