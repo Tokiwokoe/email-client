@@ -190,3 +190,21 @@ async def add_send_mail_to_database(smtp_login, receiver, mail_subject, mail_tex
         )
     )
     await db.commit()
+
+
+async def open_email(imap_login, imap_password, post_server, folder, email_id):
+    post_server_data = await get_post_server_info(post_server)
+    with imaplib.IMAP4_SSL(post_server_data['IMAP_SERVER'], post_server_data['IMAP_PORT']) as server:
+        server.login(imap_login, imap_password)
+        server.select(post_server_data[folder])
+
+        mails = []
+        response, messages = server.search(None, email_id)
+        messages = messages[0].split(b' ')
+        message_id = 1
+        for message in messages:
+            mails.append(await print_email(message, server, email_id, folder))
+            message_id += 1
+
+        server.close()
+        return mails

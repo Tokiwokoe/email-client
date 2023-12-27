@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.templating import Jinja2Templates
 from account.services import get_current_account_info, current_user, get_users_accounts_info
 from database import User
-from mail.services import imap_read_email
+from mail.services import imap_read_email, open_email
 import imaplib
 
 
@@ -48,3 +48,16 @@ async def change_post_account(request: Request, active_user: User = Depends(curr
     except Exception:
         post_accounts = []
     return templates.TemplateResponse('change_post_account.html', {'request': request, 'accounts': post_accounts})
+
+
+@router.get('/read-email/{folder}%{email_id}')
+async def read_email(request: Request, folder, email_id, active_user: User = Depends(current_user)):
+    try:
+        post_account_data = await get_current_account_info(active_user)
+        login = post_account_data.login
+        password = post_account_data.password
+        post_server = post_account_data.post_server
+        email = await open_email(login, password, post_server, folder, email_id)
+    except Exception:
+        email = []
+    return templates.TemplateResponse('read_email.html', {'request': request, 'email': email})

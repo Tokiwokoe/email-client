@@ -1,0 +1,10 @@
+{% extends 'main_page.html' %}
+{% block content %}
+{% for mail in email %}
+<div class="content">
+    <strong>От:</strong> {{ mail['From'] }}<br>
+    <p><strong>Тема:</strong> {{ mail['Subject'] }}<br></p>
+    <p><strong>Текст:</strong> {{ mail['Text'] }}<br></p>
+</div>
+{% endfor %}
+{% endblock content %}

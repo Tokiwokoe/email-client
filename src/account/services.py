@@ -42,7 +42,7 @@ async def get_users_accounts_info(active_user):
                     account = {}
                     result = await async_session.execute(
                         select(post_account.c.id).where(post_account.c.id == int(data.post_account)))
-                    account['Id'] = result.fetchone()[0]
+                    account['ID'] = result.fetchone()[0]
                     result = await async_session.execute(
                         select(post_account.c.login).where(post_account.c.id == int(data.post_account)))
                     account['Login'] = result.fetchone()[0]
